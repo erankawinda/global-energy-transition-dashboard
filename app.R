@@ -25,22 +25,19 @@ energy <- energy_raw %>%
     country, iso_code, year,
     renewables_share_elec, renewables_electricity,
     fossil_electricity, nuclear_electricity,
-    energy_per_capita, greenhouse_gas_emissions,
+    energy_per_capita, carbon_intensity_elec,
     gdp, population
   ) %>%
   left_join(region_map, by = c("iso_code" = "iso")) %>%
   mutate(
     total_electricity = fossil_electricity + renewables_electricity + 
       coalesce(nuclear_electricity, 0),
-    co2_intensity = case_when(
-      total_electricity > 0 ~ greenhouse_gas_emissions * 1e6 / total_electricity,
-      TRUE ~ NA_real_
-    ),
+    co2_intensity = carbon_intensity_elec,
     renewables_share_elec = pmin(renewables_share_elec, 100)
   ) %>%
   filter(!is.na(renewables_share_elec), !is.na(region), year >= 2000)
 
-# Unser Interface
+# User interface
 
 ui <- dashboardPage(
   title = "Global Energy Transition",
@@ -55,13 +52,13 @@ ui <- dashboardPage(
     width = 250,
     sidebarMenu(
       id = "tabs",
-      menuItem("Current State", tabName = "current", icon = icon("globe-americas")),
+      menuItem("Selected Year", tabName = "current", icon = icon("globe-americas")),
       menuItem("Evolution", tabName = "evolution", icon = icon("chart-line")),
-      menuItem("Impact Analysis", tabName = "impact", icon = icon("chart-area"))
+      menuItem("Renewables and Emissions", tabName = "impact", icon = icon("chart-area"))
     ),
     
     div(class = "dashboard-description",
-        p("Explore the global transition to renewable energy sources and their impact on carbon emissions from 2000 to present.")
+        p("Explore changes in renewable electricity and their descriptive relationship with emissions since 2000.")
     ),
     
     div(class = "year-container",
@@ -81,7 +78,7 @@ ui <- dashboardPage(
     ),
     
     div(class = "metric-container global-average",
-        h5("Global Average"),
+        h5("Country Average"),
         div(class = "metric-value", textOutput("globalAvgText")),
         div(class = "metric-label", "Renewable Energy")
     ),
@@ -157,12 +154,12 @@ ui <- dashboardPage(
         fluidRow(
           column(12,
                  div(class = "section-header",
-                     h3("Global Renewable Energy Distribution"),
+                     h3("Renewable Electricity Share by Country"),
                      div(class = "section-subtitle",
                          "Percentage of electricity generated from renewable sources by country"
                      ),
                      div(class = "section-description", 
-                         "This map visualizes the current state of renewable energy adoption worldwide. Countries with higher renewable shares appear in darker green, indicating greater progress in the energy transition.")
+                         "The map shows the values available in the committed dataset for the selected year. Darker green indicates a higher renewable share.")
                  )
           )
         ),
@@ -190,7 +187,7 @@ ui <- dashboardPage(
           column(4,
                  div(class = "stat-box",
                      div(class = "stat-value", textOutput("statGrowth")),
-                     div(class = "stat-label", "Year-over-Year Change")
+                     div(class = "stat-label", "Year-over-Year Change (pp)")
                  )
           )
         )
@@ -204,9 +201,9 @@ ui <- dashboardPage(
           column(12,
                  div(class = "section-header",
                      h3("Energy Transition Timeline"),
-                     p("Tracking renewable energy adoption in major economies from 2000 to present"),
+                     p("Tracking renewable electricity shares in selected economies across the available years"),
                      p(class = "section-description",
-                       "This timeline reveals how different countries have progressed in their renewable energy journey. Key policy events marked below have significantly influenced global energy transitions.")
+                       "The lines are descriptive and do not identify the causes of changes over time.")
                  )
           )
         ),
@@ -226,35 +223,9 @@ ui <- dashboardPage(
         ),
         fluidRow(
           column(12,
-                 div(class = "events-strip",
-                     h4("Key Global Energy Policy Events"),
-                     div(class = "events-grid",
-                         div(class = "event-card",
-                             div(class = "event-year-card", "2011"),
-                             div(class = "event-title-card", "Fukushima Disaster"),
-                             div(class = "event-desc-card", "Nuclear disaster led to decisions to phase out nuclear by 2022. Massive acceleration in solar and wind investment.")
-                         ),
-                         div(class = "event-card",
-                             div(class = "event-year-card", "2014"),
-                             div(class = "event-title-card", "China Energy Strategy"),
-                             div(class = "event-desc-card", "National Energy Strategy Action Plan: Cap on coal use, solar/wind targets, major policy shift.")
-                         ),
-                         div(class = "event-card",
-                             div(class = "event-year-card", "2015"),
-                             div(class = "event-title-card", "Paris Agreement"),
-                             div(class = "event-desc-card", "Global climate accord uniting nations in commitment to limit warming to well below 2°C.")
-                         ),
-                         div(class = "event-card",
-                             div(class = "event-year-card", "2021"),
-                             div(class = "event-title-card", "China Carbon Pledge"),
-                             div(class = "event-desc-card", "Carbon neutrality pledge targeting net zero by 2060; strong acceleration in solar/wind since.")
-                         ),
-                         div(class = "event-card",
-                             div(class = "event-year-card", "2022"),
-                             div(class = "event-title-card", "US IRA"),
-                             div(class = "event-desc-card", "Inflation Reduction Act: $370B in climate and energy investments — the largest climate legislation in US history.")
-                         )
-                     )
+                 div(class = "note-box",
+                     icon("info-circle"),
+                     "Differences in data coverage between years can affect the country mean and comparisons."
                  )
           )
         )
@@ -266,12 +237,11 @@ ui <- dashboardPage(
         fluidRow(
           column(12,
                  div(class = "section-header",
-                     h3("Renewable Energy and CO₂ Emissions"),
+                     h3("Renewable Electricity and Carbon Intensity"),
                      p("Examining the relationship between renewable energy adoption and carbon intensity of electricity generation"),
                      div(class = "note-box",
                          icon("info-circle"),
-                         "Countries with higher renewable shares typically show lower CO₂ intensity. 
-                Bubble size represents per capita energy consumption. The trend line demonstrates the inverse relationship between renewable adoption and emissions."
+                         "This is a descriptive cross-country comparison. Bubble size represents per-capita energy consumption, and the fitted line summarises association rather than causation."
                      )
                  )
           )
@@ -292,12 +262,11 @@ ui <- dashboardPage(
         fluidRow(
           column(12,
                  div(class = "insights-container",
-                     h4("Key Insights from the Analysis"),
+                     h4("Reading the Charts"),
                      div(class = "insight-box",
-                         p("• ", strong("Accelerating Global Transition:"), " The global average renewable energy share has increased from 17.3% in 2000 to over 30% in recent years, with acceleration particularly notable after the Paris Agreement (2015)."),
-                         p("• ", strong("Policy Impact:"), " Major policy interventions show clear correlations with renewable energy uptake. Germany's EEG (2000) and China's strategic shift (2014) demonstrate how targeted policies drive transformation."),
-                         p("• ", strong("Emissions Reduction:"), " Countries achieving >50% renewable electricity show 60-80% lower CO₂ intensity compared to fossil-dependent nations, validating renewable energy as a climate solution."),
-                         p("• ", strong("Regional Variations:"), " Europe and South America lead with 40%+ renewable shares, while Asia shows the fastest growth trajectory despite starting from a lower base.")
+                         p("• ", strong("Coverage:"), " Country and regional summaries use the observations available for the selected year."),
+                         p("• ", strong("Averages:"), " Country averages are unweighted and should not be interpreted as global electricity-weighted estimates."),
+                         p("• ", strong("Association:"), " The renewables-and-emissions chart is descriptive and does not identify a causal effect.")
                      )
                  )
           )
@@ -332,7 +301,7 @@ server <- function(input, output, session) {
     filter(energy, year == input$year)
   })
   
-  # Global average
+  # Unweighted mean across countries with data in the selected year
   output$globalAvgText <- renderText({
     avg <- yearData() %>%
       summarise(avg = mean(renewables_share_elec, na.rm = TRUE)) %>%
@@ -358,7 +327,7 @@ server <- function(input, output, session) {
       curr_avg <- mean(curr_year$renewables_share_elec, na.rm = TRUE)
       growth <- curr_avg - prev_avg
       
-      paste0(ifelse(growth > 0, "+", ""), round(growth, 1), "%")
+      paste0(ifelse(growth > 0, "+", ""), round(growth, 1), " pp")
     } else {
       "N/A"
     }
@@ -414,39 +383,7 @@ server <- function(input, output, session) {
     countries <- c("China", "United States", "Germany", "India", "Brazil", "Norway")
     df <- filter(energy, country %in% countries)
     
-    events <- data.frame(
-      year = c(2011, 2014, 2015, 2021, 2022),
-      label = c("Fukushima", "China\nStrategy", "Paris\nAgreement", "China\nNet Zero", "US\nIRA"),
-      y_pos = c(85, 90, 85, 90, 85),
-      color = "#66666640"
-    )
-    
     p <- plot_ly()
-    
-    # Event lines
-    for(i in seq_len(nrow(events))) {
-      p <- p %>%
-        add_trace(
-          x = c(events$year[i], events$year[i]),
-          y = c(0, 100),
-          type = 'scatter',
-          mode = 'lines',
-          line = list(color = events$color[i], width = 1, dash = 'dash'),
-          showlegend = FALSE, 
-          hoverinfo = 'skip'
-        ) %>%
-        add_annotations(
-          x = events$year[i],
-          y = events$y_pos[i],
-          text = events$label[i],
-          showarrow = FALSE,
-          font = list(size = 10, color = "#666666", family = "Gill Sans, sans-serif"),
-          bgcolor = "rgba(255,255,255,0)",
-          bordercolor = "rgba(0,0,0,0)",
-          yanchor = "bottom",
-          yshift = 5
-        )
-    }
     
     # Country lines
     last_year_data <- df %>%
@@ -538,14 +475,14 @@ server <- function(input, output, session) {
           line = list(color = 'rgba(255,255,255,0.5)', width = 1)
         ),
         opacity = 0.9,
-        text = ~paste0(round(change, 1), "%"),
+        text = ~paste0(round(change, 1), " pp"),
         textposition = "outside",
         textfont = list(size = 10, family = "Gill Sans, sans-serif"),
-        hovertemplate = paste0("%{y}<br>Change: %{x:+.1f}%<br><extra></extra>")
+        hovertemplate = paste0("%{y}<br>Change: %{x:+.1f} percentage points<br><extra></extra>")
       ) %>%
       layout(
         xaxis = list(
-          title = "Change (%)",
+          title = "Change (percentage points)",
           gridcolor = "rgba(240,240,240,0.5)",
           font = list(family = "Gill Sans, sans-serif", size = 10)
         ),
@@ -564,8 +501,7 @@ server <- function(input, output, session) {
   # Scatter plot
   output$scatterPlot <- renderPlotly({
     df <- yearData() %>%
-      filter(!is.na(co2_intensity), co2_intensity > 0) %>%
-      filter(co2_intensity < quantile(co2_intensity, 0.95, na.rm = TRUE))
+      filter(!is.na(co2_intensity), co2_intensity > 0)
     
     fit <- lm(log10(co2_intensity) ~ renewables_share_elec, data = df)
     x_range <- seq(0, 100, by = 1)
@@ -613,7 +549,7 @@ server <- function(input, output, session) {
             ),
             text = ~paste0(country, "\n", 
                            "Renewable: ", round(renewables_share_elec, 1), "%\n", 
-                           "CO₂: ", round(co2_intensity, 0), " t/TWh"),
+                           "Carbon intensity: ", round(co2_intensity, 0), " g CO₂e/kWh"),
             hoverinfo = "text"
           )
       }
@@ -628,7 +564,7 @@ server <- function(input, output, session) {
           font = list(family = "Gill Sans, sans-serif", size = 12)
         ),
         yaxis = list(
-          title = "CO₂ Intensity (tonnes per TWh) - Log Scale",
+          title = "Carbon Intensity (g CO₂e/kWh) - Log Scale",
           type = "log",
           gridcolor = "rgba(240,240,240,0.5)",
           font = list(family = "Gill Sans, sans-serif", size = 12)
@@ -704,6 +640,3 @@ server <- function(input, output, session) {
 
 # Run Application
 shinyApp(ui, server)
-
-
-

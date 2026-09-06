@@ -1,4 +1,17 @@
-.Rproj.user
+# R session state
 .Rhistory
 .RData
 .Ruserdata
+.Rproj.user/
+
+# Deployment metadata and credentials
+rsconnect/
+
+# Operating-system and editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Generated output
+*.html
+*.log
