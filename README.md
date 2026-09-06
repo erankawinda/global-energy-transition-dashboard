@@ -24,6 +24,19 @@ Then, from the repository root:
 shiny::runApp()
 ```
 
+## Deploy to Posit Connect Cloud
+
+`manifest.json` records the R version and package dependencies used by Posit
+Connect Cloud. If the app files or dependencies change, regenerate it from the
+repository root with an R installation in which the app runs successfully:
+
+```r
+rsconnect::writeManifest(appDir = ".", appMode = "shiny")
+```
+
+Commit the updated manifest together with the corresponding application
+changes. Keep account tokens and other credentials outside the repository.
+
 ## Data
 
 - `data/owid-energy-data.csv` and `data/owid-energy-codebook.csv` are a bundled
@@ -45,9 +58,10 @@ and the plots should not be read as evidence that one variable caused another.
 
 ## Repository hygiene
 
-R session files, editor state, deployment metadata, and operating-system files
-are intentionally excluded. Deployment credentials must be configured outside
-the repository.
+R session files, editor state, Posit account records, and operating-system files
+are intentionally excluded. The dependency manifest is committed because it is
+required for deployment; deployment credentials must be configured outside the
+repository.
 
 ## Licence
 
