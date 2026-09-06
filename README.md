@@ -96,6 +96,7 @@ www/style.css         Responsive dashboard styling
 data/                 Committed data snapshot and provenance notes
 tests/smoke_test.R    Data and transformation checks
 manifest.json         Posit Connect Cloud dependency manifest
+*.Rproj               RStudio project settings without workspace restoration
 ```
 
 Run the smoke test from the repository root with:
