@@ -14,6 +14,22 @@ An interactive R Shiny dashboard for exploring national electricity mixes from
 This was developed as a data-visualisation coursework project. It is an
 exploratory dashboard, not a causal study, forecast, or energy-system model.
 
+The implementation covers country-year data preparation, regional joins,
+descriptive comparisons, interactive charts, and dashboard styling. The energy
+indicators and country boundaries come from the bundled upstream datasets.
+
+## Explore the dashboard
+
+- **Selected Year:** choose a year to update the map and country summaries.
+  Hover over a country for its renewable electricity share. The play button
+  steps through the years; click it again to pause.
+- **Evolution:** compare the full time series for a fixed set of example
+  countries. The adjacent chart compares its example countries with their
+  values in 2000, using the selected year as the endpoint.
+- **Renewables and Emissions:** compare countries in the selected year and
+  inspect the unweighted regional means. Carbon intensity uses a logarithmic
+  axis, and the fitted line is descriptive.
+
 ## How the analysis works
 
 `app.R` joins country records to UN regions using ISO-3 codes from the bundled
@@ -44,8 +60,8 @@ From the repository root, run:
 shiny::runApp()
 ```
 
-The app reads only committed files, so no account, API key, or network request
-is needed at runtime.
+The R application reads the committed data files. No data-source account or
+API key is required, and changing upstream data does not alter this snapshot.
 
 ## Data and provenance
 
@@ -90,20 +106,23 @@ deployment credentials must remain outside the repository.
 
 ## Repository structure
 
-```text
-app.R                 Shiny user interface, data preparation, and server logic
-www/style.css         Responsive dashboard styling
-data/                 Committed data snapshot and provenance notes
-tests/smoke_test.R    Data and transformation checks
-manifest.json         Posit Connect Cloud dependency manifest
-*.Rproj               RStudio project settings without workspace restoration
-```
+| File or folder | Purpose |
+|---|---|
+| [`app.R`](app.R) | Data preparation, descriptive calculations, Shiny interface, and chart rendering |
+| [`www/style.css`](www/style.css) | Dashboard styling and responsive layout |
+| [`data/README.md`](data/README.md) | Data roles, indicator definitions, provenance limits, and checksums |
+| [`tests/smoke_test.R`](tests/smoke_test.R) | Data schema, year coverage, valid shares, and annual-change checks |
+| [`manifest.json`](manifest.json) | Posit Connect Cloud dependency and application-file manifest |
+| [`global-energy-transition-dashboard.Rproj`](global-energy-transition-dashboard.Rproj) | RStudio settings without saved-workspace restoration |
 
 Run the smoke test from the repository root with:
 
 ```bash
 Rscript tests/smoke_test.R
 ```
+
+The smoke test loads the app and checks its data transformations. It does not
+automatically exercise browser interactions or verify the live deployment.
 
 ## Licence
 
