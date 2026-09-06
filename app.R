@@ -8,7 +8,6 @@ library(plotly)
 library(dplyr)
 library(readr)
 library(sf)
-library(scales)
 library(tidyr)
 
 # Data Preparation
@@ -16,26 +15,66 @@ library(tidyr)
 energy_raw <- read_csv("data/owid-energy-data.csv", show_col_types = FALSE)
 world <- st_read("data/world-countries.json", quiet = TRUE)
 
+required_energy_columns <- c(
+  "country", "iso_code", "year", "renewables_share_elec",
+  "carbon_intensity_elec"
+)
+missing_energy_columns <- setdiff(required_energy_columns, names(energy_raw))
+if (length(missing_energy_columns) > 0) {
+  stop(
+    "The energy snapshot is missing required columns: ",
+    paste(missing_energy_columns, collapse = ", ")
+  )
+}
+
+required_map_columns <- c("iso_a3", "region_un")
+missing_map_columns <- setdiff(required_map_columns, names(world))
+if (length(missing_map_columns) > 0) {
+  stop(
+    "The boundary file is missing required properties: ",
+    paste(missing_map_columns, collapse = ", ")
+  )
+}
+
 region_map <- world %>%
   st_drop_geometry() %>%
-  select(iso = iso_a3, region = region_un)
+  select(iso = iso_a3, region = region_un) %>%
+  filter(iso != "-99") %>%
+  distinct(iso, .keep_all = TRUE)
 
 energy <- energy_raw %>%
   select(
     country, iso_code, year,
-    renewables_share_elec, renewables_electricity,
-    fossil_electricity, nuclear_electricity,
-    energy_per_capita, carbon_intensity_elec,
-    gdp, population
+    renewables_share_elec, carbon_intensity_elec
   ) %>%
   left_join(region_map, by = c("iso_code" = "iso")) %>%
   mutate(
-    total_electricity = fossil_electricity + renewables_electricity + 
-      coalesce(nuclear_electricity, 0),
-    co2_intensity = carbon_intensity_elec,
-    renewables_share_elec = pmin(renewables_share_elec, 100)
+    co2_intensity = carbon_intensity_elec
   ) %>%
   filter(!is.na(renewables_share_elec), !is.na(region), year >= 2000)
+
+if (anyDuplicated(energy[c("country", "year")])) {
+  stop("Country-year rows are not unique after the region join.")
+}
+
+paired_country_mean_change <- function(data, selected_year) {
+  if (selected_year <= min(data$year)) {
+    return(NA_real_)
+  }
+
+  current <- data %>%
+    filter(year == selected_year) %>%
+    select(iso_code, current_share = renewables_share_elec)
+  previous <- data %>%
+    filter(year == selected_year - 1) %>%
+    select(iso_code, previous_share = renewables_share_elec)
+
+  matched <- inner_join(current, previous, by = "iso_code")
+  if (nrow(matched) == 0) {
+    return(NA_real_)
+  }
+  mean(matched$current_share - matched$previous_share, na.rm = TRUE)
+}
 
 # User interface
 
@@ -80,7 +119,7 @@ ui <- dashboardPage(
     div(class = "metric-container global-average",
         h5("Country Average"),
         div(class = "metric-value", textOutput("globalAvgText")),
-        div(class = "metric-label", "Renewable Energy")
+        div(class = "metric-label", "Mean renewable electricity share")
     ),
     
     div(class = "sidebar-footer",
@@ -94,8 +133,6 @@ ui <- dashboardPage(
       tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
       tags$script(HTML("
         $(document).ready(function() {
-          $('body').css('overflow', 'hidden');
-          
           // Play button functionality
           var playing = false;
           var interval;
@@ -139,11 +176,6 @@ ui <- dashboardPage(
             }
           });
         });
-      ")),
-      tags$style(HTML("
-        * {
-          font-family: 'Gill Sans', sans-serif !important;
-        }
       "))
     ),
     
@@ -187,7 +219,7 @@ ui <- dashboardPage(
           column(4,
                  div(class = "stat-box",
                      div(class = "stat-value", textOutput("statGrowth")),
-                     div(class = "stat-label", "Year-over-Year Change (pp)")
+                     div(class = "stat-label", "Paired-Country Annual Change (pp)")
                  )
           )
         )
@@ -238,10 +270,10 @@ ui <- dashboardPage(
           column(12,
                  div(class = "section-header",
                      h3("Renewable Electricity and Carbon Intensity"),
-                     p("Examining the relationship between renewable energy adoption and carbon intensity of electricity generation"),
+                     p("Comparing renewable electricity share with the carbon intensity of electricity generation"),
                      div(class = "note-box",
                          icon("info-circle"),
-                         "This is a descriptive cross-country comparison. Bubble size represents per-capita energy consumption, and the fitted line summarises association rather than causation."
+                         "This is a descriptive cross-country comparison. Each marker is one country, and the fitted line summarises association rather than causation."
                      )
                  )
           )
@@ -281,9 +313,6 @@ ui <- dashboardPage(
 server <- function(input, output, session) {
   
   # Color palettes
-  gg_colors <- scales::hue_pal()(6)
-  watercolor_palette <- paste0(gg_colors, "80")
-  
   country_colors <- c(
     "China" = "#FF998080",
     "United States" = "#99CCFF80", 
@@ -293,8 +322,6 @@ server <- function(input, output, session) {
     "Norway" = "#CCCCFF80",
     "Japan" = "#FFFF9980"
   )
-  
-  region_colors_palette <- scales::hue_pal()(6)
   
   # Reactive data
   yearData <- reactive({
@@ -319,14 +346,8 @@ server <- function(input, output, session) {
   })
   
   output$statGrowth <- renderText({
-    if (input$year > 2000) {
-      prev_year <- filter(energy, year == input$year - 1)
-      curr_year <- yearData()
-      
-      prev_avg <- mean(prev_year$renewables_share_elec, na.rm = TRUE)
-      curr_avg <- mean(curr_year$renewables_share_elec, na.rm = TRUE)
-      growth <- curr_avg - prev_avg
-      
+    growth <- paired_country_mean_change(energy, input$year)
+    if (!is.na(growth)) {
       paste0(ifelse(growth > 0, "+", ""), round(growth, 1), " pp")
     } else {
       "N/A"
@@ -436,7 +457,7 @@ server <- function(input, output, session) {
           range = c(2000, max(df$year) + 2)
         ),
         yaxis = list(
-          title = "Renewable Energy Share (%)",
+          title = "Renewable Electricity Share (%)",
           range = c(0, 100),
           gridcolor = "rgba(240,240,240,0.5)",
           font = list(family = "Gill Sans, sans-serif", size = 12)
@@ -541,9 +562,7 @@ server <- function(input, output, session) {
             mode = 'markers',
             name = region_name,
             marker = list(
-              size = ~sqrt(energy_per_capita),
-              sizemode = 'area',
-              sizeref = 2,
+              size = 10,
               color = region_colors[region_name],
               line = list(color = 'rgba(255,255,255,0.8)', width = 1)
             ),
@@ -558,7 +577,7 @@ server <- function(input, output, session) {
     p %>%
       layout(
         xaxis = list(
-          title = "Renewable Energy Share (%)",
+          title = "Renewable Electricity Share (%)",
           range = c(-5, 105),
           gridcolor = "rgba(240,240,240,0.5)",
           font = list(family = "Gill Sans, sans-serif", size = 12)
@@ -590,6 +609,7 @@ server <- function(input, output, session) {
       group_by(region) %>%
       summarise(
         renewable_avg = mean(renewables_share_elec, na.rm = TRUE),
+        n_countries = n(),
         .groups = 'drop'
       ) %>%
       arrange(desc(renewable_avg))
@@ -614,14 +634,18 @@ server <- function(input, output, session) {
             ),
             opacity = 0.9,
             text = ~paste0(round(renewable_avg, 1), "%"),
+            customdata = ~n_countries,
             textposition = "outside",
             textfont = list(size = 10, family = "Gill Sans, sans-serif"),
-            hovertemplate = paste0("%{y}<br>Average: %{x:.1f}%<br><extra></extra>")
+            hovertemplate = paste0(
+              "%{y}<br>Country mean: %{x:.1f}%<br>",
+              "Countries: %{customdata}<br><extra></extra>"
+            )
     ) %>%
       layout(
         xaxis = list(
-          title = "Average Renewable %",
-          range = c(0, 60),
+          title = "Mean Renewable Electricity Share (%)",
+          range = c(0, min(100, max(60, max(df$renewable_avg) * 1.15))),
           gridcolor = "rgba(240,240,240,0.5)",
           font = list(family = "Gill Sans, sans-serif", size = 11)
         ),

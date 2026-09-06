@@ -6,9 +6,10 @@
 }
 
 html, body {
-  height: 1080px;
-  width: 1920px;
-  overflow: hidden;
+  min-height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
   margin: 0;
   padding: 0;
   font-family: 'Gill Sans', sans-serif;
@@ -19,14 +20,15 @@ html, body {
 
 /* Layout Structure */
 .wrapper {
-  height: 1080px !important;
-  width: 1920px !important;
-  overflow: hidden !important;
+  min-height: 100vh !important;
+  width: 100% !important;
+  overflow: visible !important;
 }
 
 .content-wrapper, .right-side {
-  height: 1080px !important;
-  overflow: hidden !important;
+  min-height: 100vh !important;
+  height: auto !important;
+  overflow: visible !important;
   margin-left: 250px !important;
   background-color: rgba(250, 250, 250, 0.5);
 }
@@ -57,7 +59,8 @@ html, body {
 
 /* Sidebar */
 .main-sidebar {
-  height: 1080px !important;
+  min-height: 100vh !important;
+  height: 100% !important;
   position: fixed !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
@@ -110,18 +113,19 @@ html, body {
 /* Content Area */
 .content {
   padding: 70px 20px 20px 20px !important;
-  height: calc(1080px - 50px) !important;
-  overflow: hidden !important;
+  min-height: calc(100vh - 50px) !important;
+  height: auto !important;
+  overflow: visible !important;
 }
 
 .tab-content {
-  height: calc(100% - 20px) !important;
-  overflow: hidden !important;
+  height: auto !important;
+  overflow: visible !important;
 }
 
 .tab-pane {
-  height: 100% !important;
-  overflow: hidden !important;
+  height: auto !important;
+  overflow: visible !important;
 }
 
 /* Year Container with Slider */
@@ -231,10 +235,8 @@ html, body {
 
 /* Sidebar Footer */
 .sidebar-footer {
-  position: absolute;
-  bottom: 120px;
-  left: 0;
-  right: 0;
+  position: static;
+  margin-top: 24px;
   padding: 15px 20px;
   border-top: 1px solid rgba(224, 224, 224, 0.3);
   background-color: rgba(255, 255, 255, 0.5);
@@ -790,7 +792,7 @@ html, body {
 .event-compact:nth-child(6) { animation: fadeInUp 0.6s ease-out 0.6s both; }
 .event-compact:nth-child(7) { animation: fadeInUp 0.6s ease-out 0.7s both; }
 
-/* Responsive adjustments for 1920x1080 */
+/* Responsive spacing */
 .row {
   margin-left: -10px;
   margin-right: -10px;
@@ -828,11 +830,6 @@ h3, h4, h5 {
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* Make sure all text uses Gill Sans */
-* {
-  font-family: 'Gill Sans', sans-serif !important;
-}
-
 /* Final touches for publication quality */
 .main-viz-container,
 .viz-container {
@@ -842,6 +839,30 @@ h3, h4, h5 {
 /* Smooth transitions for all interactive elements */
 a, button, input, select, .stat-box, .event-compact {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 767px) {
+  .content-wrapper,
+  .right-side {
+    margin-left: 0 !important;
+  }
+
+  .main-header .navbar {
+    margin-left: 0 !important;
+  }
+
+  .main-sidebar {
+    position: absolute !important;
+    height: auto !important;
+  }
+
+  .content {
+    padding: 65px 12px 18px 12px !important;
+  }
+
+  .stat-box {
+    padding: 20px;
+  }
 }
 
 /* Print-ready adjustments */
